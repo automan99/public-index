@@ -5,7 +5,7 @@ window.__PDA_IOT_DATA__ = {
     "meta": {
       "generatedFrom": "shared/mock_parcels.json + shared/tools/build_label.py",
       "timestamp": "2026-09-22T18:00:00+08:00",
-      "h5Base": "https://nfc.example.com/p/",
+      "h5Base": "https://automan99.github.io/public-index/index.html?w=",
       "waybills": [
         "202608080001",
         "202608080002",

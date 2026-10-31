@@ -6,9 +6,10 @@
  *   1. `tests/run_tests.js` 跑的是**纯函数**，够不到「页面到底渲染出来没有」。
  *      指针降级逻辑全绿，不等于 `/p/<运单号>` 打得开。
  *   2. AC-04 判的是「手机不装 App，碰标签打开 H5 并完整展示」，它依赖**生产形态的
- *      URL**（`/p/<运单号>`）。这条路径需要一个 SPA 回退规则才成立，而纯函数单测
- *      完全碰不到它 —— 本地一度用 `python3 -m http.server`，那条 URL 直接 404，
- *      等于 AC-04 从来没在本地被验过。
+ *      URL**。形态由托管的回退能力决定：`--form=path`（默认）用 `/p/<运单号>`，需要
+ *      SPA 回退；`--form=query` 用 `/index.html?w=<运单号>`，纯静态托管（GitHub Pages
+ *      等）也能直接打开。纯函数单测完全碰不到这两条路径 —— 本地一度用
+ *      `python3 -m http.server`，`/p/` 那条 URL 直接 404，等于 AC-04 从来没被验过。
  *   3. AC-09（改素材表文案不重写标签）此前**没有任何自动化断言**，只靠人点。
  *
  * 所以这里用**真浏览器**（headless Chrome）+ **真 HTTP**跑一遍，并把 AC-09 做成
@@ -21,6 +22,8 @@
  * 用法：
  *   node reader-h5/tests/acceptance.js                    # 自己起服务，全跑（含 AC-09）
  *   node reader-h5/tests/acceptance.js --base https://<域名>   # 打线上，只跑 AC-04/05
+ *   node reader-h5/tests/acceptance.js --base https://<域名> --form=query
+ *                                                          # 线上正式形态是 ?w= 时用
  */
 'use strict';
 
@@ -278,6 +281,14 @@ async function main() {
   const argv = process.argv.slice(2);
   const baseArg = argv.indexOf('--base');
   let base = baseArg >= 0 ? argv[baseArg + 1] : null;
+  const formArg = argv.indexOf('--form');
+  const formEq = argv.find((a) => a.startsWith('--form='));
+  const form = formEq ? formEq.slice('--form='.length)
+    : (formArg >= 0 ? argv[formArg + 1] : 'path');
+  if (form !== 'path' && form !== 'query') {
+    console.error(`--form 只能是 path 或 query，收到 ${JSON.stringify(form)}`);
+    process.exit(2);
+  }
   const isLocal = !base;
   let server = null;
 
@@ -286,6 +297,10 @@ async function main() {
     server = await startServer(port);
     base = `http://127.0.0.1:${port}`;
   }
+
+  // 正式形态由 --form 指定；另一种形态用作 AC-05 的对照。
+  const prodUrl = form === 'query' ? `${base}/index.html?w=` : `${base}/p/`;
+  const altUrl = form === 'query' ? `${base}/p/` : `${base}/index.html?w=`;
 
   const labelsDoc = readJSON(path.join(H5_DIR, 'data', 'labels.json'));
   const adSlots = readJSON(path.join(H5_DIR, 'data', 'adSlots.json'));
@@ -298,6 +313,7 @@ async function main() {
 
   console.log('H5 读取页验收断言（AC-04 / AC-05 / AC-09）');
   console.log(`目标：${base}${isLocal ? '（本地，含 AC-09）' : '（远端，跳过 AC-09）'}`);
+  console.log(`正式形态：${form === 'query' ? 'index.html?w=<运单号>' : '/p/<运单号>'}`);
   console.log(`样品运单：${W}\n`);
 
   const browser = await Browser.launch();
@@ -306,17 +322,21 @@ async function main() {
     // ============================================================ AC-04
     console.log('--- AC-04：手机不装 App，碰标签打开 H5 并完整展示（生产形态 URL）---');
 
-    const r = await fetch(`${base}/p/${W}`, { redirect: 'manual' });
-    check(`GET /p/${W} 返回 200（SPA 回退规则生效）`, r.status === 200,
-      `实际 HTTP ${r.status} —— 托管方没配 rewrite，见 reader-h5/deploy/`);
+    const prodPath = form === 'query' ? `/index.html?w=${W}` : `/p/${W}`;
+    const prodUrlW = prodUrl + W;
+    const r = await fetch(prodUrlW, { redirect: 'manual' });
+    check(`GET ${prodPath} 返回 200`, r.status === 200,
+      form === 'query'
+        ? `实际 HTTP ${r.status} —— 静态托管应能直接返回 index.html`
+        : `实际 HTTP ${r.status} —— 托管方没配 SPA 回退，见 reader-h5/deploy/`);
 
     const page = await browser.newPage();
     await page.emulateMobile();
     try {
-      await page.goto(`${base}/p/${W}`);
+      await page.goto(prodUrlW);
     } catch (e) {
       // 渲染不出来时后面每条断言都无从谈起 —— 报一条 FAIL 就收，别刷一屏噪音
-      check(`页面在 /p/${W} 下渲染完成`, false, e.message);
+      check(`页面在 ${prodPath} 下渲染完成`, false, e.message);
       throw new Error('__RENDER_FAILED__');
     }
 
@@ -366,10 +386,23 @@ async function main() {
       nonNetwork.length ? nonNetwork.join('\n       ') : undefined);
 
     // ============================================================ AC-05
-    console.log('\n--- AC-05：扫码兜底打开同一页，内容一致 ---');
+    console.log(`\n--- AC-05：另一种形态（${form === 'query' ? '/p/' : '?w='}）打开同一页，内容一致 ---`);
     const page2 = await browser.newPage();
     await page2.emulateMobile();
-    await page2.goto(`${base}/index.html?w=${W}`);
+
+    if (form === 'query') {
+      // GitHub Pages 无法对 /p/* 返回 200：命中 404.html 后在浏览器里跳转到 ?w=。
+      // HTTP 状态是 404 属于预期，真正要验的是「浏览器能落到同一个页面」。
+      const alt = await fetch(`${altUrl}${W}`, { redirect: 'manual' });
+      if (alt.status === 200) {
+        check(`GET /p/${W} 返回 200`, true);
+      } else {
+        skip(`GET /p/${W} 返回 200`, `实际 HTTP ${alt.status} —— 静态托管无 rewrite；` +
+          '下方用真浏览器验证 404.html 的前端跳转');
+      }
+    }
+
+    await page2.goto(`${altUrl}${W}`);
 
     const href = routeNames.filter(Boolean);
     check('兜底页也完整渲染', href.length === 0 || (await page2.has(href[0])));
@@ -405,7 +438,7 @@ async function main() {
         // 新开一个标签页 = 全新加载，不复用任何缓存
         const page3 = await browser.newPage();
         await page3.emulateMobile();
-        await page3.goto(`${base}/p/${W}`);
+        await page3.goto(prodUrlW);
 
         check('改后：刷新页面即出现新文案', await page3.has(marker));
         check('改后：旧文案不再出现', !(await page3.has(oldTitle)));

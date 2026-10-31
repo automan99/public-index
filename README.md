@@ -34,7 +34,8 @@ bash reader-h5/serve.sh                   # 默认 8080
 | 场景 | 地址 |
 | --- | --- |
 | 演示数据 | `http://localhost:8080/index.html?w=202608080003` |
-| 路径式（**生产形态**） | `http://localhost:8080/p/202608080003` |
+| 线上正式形态 | `https://automan99.github.io/public-index/index.html?w=202608080003` |
+| 路径式（`/p/`，由 `404.html` 兼容） | `http://localhost:8080/p/202608080003` |
 | 调试入口 | `http://localhost:8080/index.html?debug=1` |
 
 单测（纯函数，无浏览器）：
@@ -47,10 +48,13 @@ node reader-h5/tests/run_tests.js
 
 ```bash
 bash reader-h5/tests/acceptance.sh                    # 本地，自己起服务，全跑
-bash reader-h5/tests/acceptance.sh https://<域名>      # 打线上，只跑 AC-04 / AC-05
+bash reader-h5/tests/acceptance.sh https://<域名>      # 打线上（/p/ 形态），只跑 AC-04 / AC-05
+bash reader-h5/tests/acceptance.sh https://automan99.github.io/public-index --form=query
+                                                      # 打线上（正式形态 ?w=）
 ```
 
-它自己起 `serve_spa.py`、开 headless Chrome、按手机视口打开 `/p/<运单号>`，
+它自己起 `serve_spa.py`、开 headless Chrome、按手机视口打开正式形态 URL
+（默认 `/p/<运单号>`，`--form=query` 时为 `index.html?w=<运单号>`），
 逐项对内容，并对 AC-09 做**字节级**断言（改文案后页面必须变、`labels.json`
 必须一个字节都不变）。零 npm 依赖。
 
@@ -122,14 +126,19 @@ shared/mock_parcels.json ──build_data.py──▶ data/labels.json ──按
 
 ## 四、三个已知边界（**需要甲方/部署方知道**）
 
-### 1. `/p/<运单号>` 要求托管方支持 SPA 回退
+### 1. 正式 URL 形态取决于托管能力
 
-D7 确认的 URL 形态是 `https://<域名>/p/<运单号>`。这**不对应磁盘上的任何文件**，
-静态托管默认返回 404，必须配一条 rewrite 把 `/p/*` 回退到 `index.html`。
+D7 定的形态是 `https://<域名>/p/<运单号>`。这**不对应磁盘上的任何文件**，
+静态托管默认返回 404，需要配一条 rewrite 把 `/p/*` 回退到 `index.html`。
 
-**现成配置见 `deploy/`**（Netlify / Vercel / nginx 各一份）。本地
-`reader-h5/tools/serve_spa.py` 实现的就是同一条规则，`serve.sh` 默认用它 ——
-**本地怎么跑，线上就怎么跑**，AC-04 才算真的被验过。
+**当前演示部署是 GitHub Pages 项目页**（子路径 `/public-index/`）：GitHub Pages
+不支持 rewrite，因此**正式形态改为 `index.html?w=<运单号>`**，纯静态托管直接返回 200；
+`/p/<运单号>` 由部署仓库根目录的 `404.html` 在浏览器里跳到 `?w=` 形态——HTTP 状态先 404、
+再前端跳转，能看但不是首选。写标签时用 `--h5-base` 指向 `?w=` 形态即可。
+
+换到支持 rewrite 的托管（Netlify / Vercel / nginx）时，**`deploy/` 里的配置仍然可用**，
+`/p/` 可直接 200 返回。本地 `reader-h5/tools/serve_spa.py` 实现的就是该规则，
+`serve.sh` 默认用它，因此本地验收默认仍是 `--form=path`。
 
 > 此前本地用的是 `python3 -m http.server`，它对 `/p/xxx` 直接 404，
 > 于是**生产形态的 URL 在本地从来没有被打开过**。

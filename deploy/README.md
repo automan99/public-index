@@ -2,6 +2,11 @@
 
 **要托管方做的一件事**：让 `https://<域名>/p/<运单号>` 能打开。
 
+> **GitHub Pages 例外（当前演示部署）**：GitHub Pages 不支持 rewrite，正式形态用
+> `index.html?w=<运单号>`，由写单时的 `--h5-base` 直接生成；`/p/<运单号>` 由部署仓库
+> 根目录的 `404.html` 前端跳转到 `?w=` 兼容。下面的 rewrite 配置适用于 Netlify /
+> Vercel / nginx 等支持回退规则的托管。
+
 `/p/<运单号>` 不对应磁盘上的任何文件，静态托管默认返回 404。需要配一条 rewrite，
 把 `/p/*` 回退到 `index.html`，由前端按 pathname 取运单号（`app.js` 的 `waybillFromUrl()`）。
 

@@ -11,6 +11,8 @@
 # 用法：
 #   bash reader-h5/tests/acceptance.sh                  # 本地：自己起服务，全跑（含 AC-09）
 #   bash reader-h5/tests/acceptance.sh https://<域名>     # 线上：只跑 AC-04 / AC-05
+#   bash reader-h5/tests/acceptance.sh https://<域名> --form=query
+#                                                      # 线上正式形态是 index.html?w= 时用
 #
 # ⚠️ AC-09 会临时改动 data/adSlots.json 再还原，只对本地目标执行；
 #    打线上时脚本会自动跳过它，不会去动别人的服务器。
@@ -19,7 +21,7 @@ set -eu
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "${1:-}" != "" ]; then
-  exec node "$HERE/acceptance.js" --base "${1%/}"
+  exec node "$HERE/acceptance.js" --base "${1%/}" "${@:2}"
 fi
 
 exec node "$HERE/acceptance.js"
