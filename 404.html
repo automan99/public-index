@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>页面不存在 · 快件溯源</title>
+<!--
+  GitHub Pages 的 SPA 回退。
+
+  GitHub Pages 没有 Netlify 那样的 /p/*  rewrite（见 deploy/），
+  /p/<运单号> 不对应磁盘文件，会命中本页。这里只把 /p/* 转成前端支持的
+  ?w=<运单号> 形式（app.js 的 waybillFromUrl()），**其余路径保持 404**——
+  与 deploy/_redirects 的取舍一致：不做全站兜底，避免把「素材表没部署上去」
+  这类真实故障静默吞掉。
+
+  站点根按 pathname 现算，同时支持两种部署形态：
+      https://<user>.github.io/p/<运单号>              → /
+      https://<user>.github.io/<repo>/p/<运单号>       → /<repo>/
+-->
+<script>
+(function () {
+  var m = location.pathname.match(/\/p\/([^/?#]+)\/?$/);
+  if (!m) return;
+  var root = location.pathname.slice(0, m.index + 1);
+  location.replace(root + '?w=' + encodeURIComponent(m[1]));
+})();
+</script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Microsoft YaHei", sans-serif;
+    color: #333; background: #f6f7f9;
+  }
+  main { text-align: center; padding: 24px; }
+  h1 { margin: 0 0 8px; font-size: 56px; color: #888; }
+  p { margin: 4px 0; color: #666; }
+  a { color: #0b74de; }
+</style>
+</head>
+<body>
+  <main>
+    <h1>404</h1>
+    <p>页面不存在。</p>
+    <p><a href="./">返回首页</a></p>
+  </main>
+</body>
+</html>
