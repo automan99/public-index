@@ -58,8 +58,10 @@ data/adSlots.json 缺失
 
 1. 把 `reader-h5/` 下这些**整个**传上去：
    `index.html`、`app.js`、`styles.css`、`data/`（构建产物，必须一起传）。
-2. `data/` 里的四个文件一个都不能少：
-   `labels.json`、`embedded.js`、`adSlots.json`、`materials.json`、`nodes.json`。
+2. `data/` 里的文件一个都不能少：
+   `labels.json`、`embedded.js`、`adSlots.json`、`materials.json`、`nodes.json`，
+   以及 `materials/` 子目录（验货配图，`materials.json` 指向 `data/materials/…`）。
+   整个 `data/` 目录一起传最稳妥。
 3. 加上本目录对应的 rewrite 配置。
 4. 配好后跑一遍验收（见下），**不要靠肉眼点**。
 

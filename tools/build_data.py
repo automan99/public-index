@@ -34,6 +34,10 @@ DATA_DIR = os.path.join(H5_DIR, "data")
 # 素材表 / 节点表：直接从 shared/ 复制，保证两端同源
 COPY_FROM_SHARED = ["adSlots.json", "materials.json", "nodes.json"]
 
+# 验货素材图：materials.json 里的 url 是站内相对路径（data/materials/…），
+# 图片本身也必须随 H5 一起部署，否则线上只剩一个破图图标。
+COPY_DIRS = [("materials", "materials")]  # shared/materials/ → data/materials/
+
 
 def load_build_label():
     """按路径加载 shared/tools/build_label.py（它不是包，用 importlib 显式加载）。"""
@@ -113,8 +117,21 @@ def main() -> int:
         shutil.copyfile(os.path.join(SHARED, name), os.path.join(DATA_DIR, name))
         print(f"[ OK ] 复制 {name}")
 
+    # 素材图目录缺失时**硬失败**：materials.json 指向 data/materials/ 却没图，
+    # 页面不会报错，只会安静地显示破图 —— 这正是要在构建期挡住的情况。
+    for src_name, dst_name in COPY_DIRS:
+        src_dir = os.path.join(SHARED, src_name)
+        dst_dir = os.path.join(DATA_DIR, dst_name)
+        if not os.path.isdir(src_dir):
+            print(f"[FAIL] 缺少素材图目录：{os.path.relpath(src_dir, REPO)}", file=sys.stderr)
+            return 1
+        shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
+        files = sorted(os.listdir(src_dir))
+        print(f"[ OK ] 复制 {src_name}/ → data/{dst_name}/（{len(files)} 个文件）")
+
     print(f"\n产物：{os.path.relpath(json_path, REPO)}、"
-          f"{os.path.relpath(js_path, REPO)}、{', '.join(COPY_FROM_SHARED)}")
+          f"{os.path.relpath(js_path, REPO)}、{', '.join(COPY_FROM_SHARED)}、"
+          f"{', '.join('data/' + d for _s, d in COPY_DIRS)}")
     print("提示：素材表改完**不需要重跑本脚本**（页面每次加载都重新读取）——"
           "这正是指针化的价值，改广告不用重写标签。")
     return 0

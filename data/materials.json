@@ -1,15 +1,15 @@
 {
-  "_comment": "验货素材表：把标签里的 materialId 指针解析成验货图 / 图文说明。v0.4 曾把 71 B 的图片 URL 直接写进标签——那个 URL 既吃掉 11% 的标签容量，又指向一张离线现场打不开的图。改为指针后标签只存 6 B。",
+  "_comment": "验货素材表：把标签里的 materialId 指针解析成验货图 / 图文说明。v0.4 曾把 71 B 的图片 URL 直接写进标签——那个 URL 既吃掉 11% 的标签容量，又指向一张离线现场打不开的图。改为指针后标签只存 6 B。url 用站内相对路径（由 index.html 的 <base> 解析），随 H5 一起部署，离线可用。",
   "_version": "1",
   "materials": {
     "M001": {
       "type": "photo",
-      "url": "https://cdn.example.com/inspect/202608080001.jpg",
+      "url": "data/materials/M001.jpg",
       "caption": "开箱验货：茶叶礼盒外观完好"
     },
     "M002": {
       "type": "photo",
-      "url": "https://cdn.example.com/inspect/202608080003.jpg",
+      "url": "data/materials/M002.jpg",
       "caption": "开箱验货：生鲜礼包冷链封条完整"
     }
   }

@@ -367,6 +367,26 @@ async function main() {
     if (label.f.m.p) {
       const mat = (materials.materials || {})[label.f.m.p];
       check(`展示验货素材 ${label.f.m.p} 的说明`, mat ? await page.has(mat.caption) : false);
+
+      // 说明文字只是表里的 caption；图片本身是另一个资源请求，路径写错时
+      // 页面照样能渲染（只显示破图图标），所以这里必须等 img 自己的 load/error。
+      if (mat && mat.type === 'photo') {
+        // 在 Node 侧轮询，而不是让页面里返回 Promise —— 后者在 CDP 求值里会踩坑。
+        // complete 在 load 与 error 之后都会变 true，因此还要看 naturalWidth：
+        // 破图的 naturalWidth 是 0。
+        let img = null;
+        const deadline = Date.now() + 10000;
+        while (Date.now() < deadline) {
+          img = await page.evaluate(`(() => {
+            const el = document.querySelector('.material img');
+            return el ? { src: el.currentSrc || el.src, complete: el.complete, w: el.naturalWidth } : null;
+          })()`);
+          if (img && img.complete) break;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        check(`验货图 ${label.f.m.p} 实际加载成功`, !!img && img.complete && img.w > 0,
+          img ? `src=${img.src} naturalWidth=${img.w}` : '页面里没有 .material img');
+      }
     }
 
     check('展示留痕：最后触碰时间', await page.has(label.o.ts));
