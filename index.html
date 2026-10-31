@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>快件溯源 · NFC-PDA</title>
+<!--
+  站点根修正。必须放在所有相对 URL 之前，且必须是内联同步脚本。
+
+  为什么需要：D7 定的生产形态是 https://<域名>/p/<运单号>，它由一个 SPA 回退规则
+  交给本页（见 deploy/）。但浏览器不知道这件事 —— 在 /p/202608080001 这样的地址下，
+  裸相对路径 styles.css / app.js / data/labels.json 会被解析到 **/p/** 下，
+  于是每个资源都命中同一条回退规则、拿回一份 HTML（Content-Type: text/html）。
+  结果：CSS 不生效、app.js 报语法错、labels.json 的 r.json() 解析失败 ——
+  页面在生产形态的 URL 下**什么都渲染不出来**。
+
+  这里把站点根显式算出来写进 <base>，一次性覆盖三种部署形态：
+      /p/<运单号>            → /
+      /nfc/p/<运单号>        → /nfc/
+      /index.html            → /
+      file:///…/reader-h5/…  → 同级目录（file:// 兜底路径仍可用）
+  这样 index.html、app.js 里的相对路径**一行都不用改**，也不需要构建链（需求 §5.2）。
+-->
+<script>
+(function () {
+  var p = location.pathname;
+  var i = p.indexOf('/p/');
+  var root = i >= 0 ? p.slice(0, i + 1) : p.replace(/[^/]*$/, '');
+  document.write('<base href="' + root + '">');
+})();
+</script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">NFC 离线物流系统</span>
+      <span class="brand-sub" id="source-badge"></span>
+    </div>
+  </header>
+
+  <main id="main" class="main">
+    <p class="loading">正在加载…</p>
+  </main>
+
+  <!-- 真机联调入口：把 PDA 导出的标签载荷贴进来渲染，不必先部署域名 -->
+  <section class="card debug" id="debug-box" hidden>
+    <details>
+      <summary>调试：粘贴标签载荷 JSON 渲染</summary>
+      <textarea id="debug-input" placeholder='{"v":"2","t":"pda-iot-label","f":{…},"o":{…}}'
+                spellcheck="false" autocomplete="off"></textarea>
+      <button id="debug-go" type="button">渲染</button>
+      <p class="debug-hint" id="debug-hint"></p>
+    </details>
+  </section>
+
+  <footer class="foot">
+    <span id="foot-meta"></span>
+  </footer>
+</div>
+
+<!-- file:// 兜底数据（fetch 不可用时回退）。缺失也不影响 http 场景。 -->
+<script src="data/embedded.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

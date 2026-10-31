@@ -1,0 +1,14 @@
+# SPA 回退规则（Netlify / Cloudflare Pages）
+
+# D7 定的生产形态是 https://<域名>/p/<运单号>，而它并不对应磁盘上的任何文件。
+# 静态托管必须把 /p/* 回退到 index.html，由前端按 pathname 取运单号。
+#
+# 刻意**只**回退 /p/*，不做全站兜底：
+#   若写成 /*  /index.html  200，那么 data/adSlots.json 一旦没部署上去，
+#   服务器会返回一份 HTML；页面的 r.json() 解析失败后退回 embedded.js 内嵌副本，
+#   页面照样能看 —— 但看的是构建期旧数据，真实故障被静默吞掉。
+#   限定 /p/* 前缀，素材表缺失就是一个响亮的 404。
+#
+# 本规则与 reader-h5/tools/serve_spa.py 的行为一致：本地怎么跑，线上就怎么跑。
+
+/p/*  /index.html  200

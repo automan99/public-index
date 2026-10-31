@@ -1,0 +1,174 @@
+/* 快件溯源 H5 —— 移动端优先，零依赖。
+   设计约束来自需求 §5.4：信息卡 / 路由进度 / 脱敏 UID / 广告位 / 底部留痕。 */
+
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --ink: #1b1d21;
+  --ink-2: #5b6068;
+  --ink-3: #8b9099;
+  --line: #e6e8ec;
+  --brand: #1f6feb;
+  --brand-soft: #eaf1fe;
+  --ok: #1a7f4b;
+  --warn: #9a6400;
+  --warn-soft: #fff5e0;
+  --err: #b3261e;
+  --err-soft: #fdecea;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+        "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+#app { max-width: 520px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  background: linear-gradient(135deg, #1f6feb, #1550b8);
+  color: #fff;
+  padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
+  position: sticky; top: 0; z-index: 5;
+}
+.topbar-inner { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.brand { font-size: 16px; font-weight: 600; letter-spacing: .2px; }
+.brand-sub { font-size: 11px; opacity: .82; }
+
+.main { flex: 1; padding: 14px 14px 24px; }
+
+/* ---------- 通用卡片 ---------- */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 15px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+}
+.card-title {
+  font-size: 12px; font-weight: 600; letter-spacing: .6px;
+  color: var(--ink-3); text-transform: uppercase;
+  margin: 0 0 10px;
+}
+
+/* ---------- 快件主信息 ---------- */
+.hero { text-align: left; }
+.hero-no {
+  font-size: 22px; font-weight: 700; letter-spacing: .5px;
+  font-variant-numeric: tabular-nums; margin: 0 0 2px;
+}
+.hero-no-label { font-size: 12px; color: var(--ink-3); margin: 0 0 12px; }
+.kv { display: flex; gap: 10px; padding: 5px 0; border-top: 1px dashed var(--line); }
+.kv:first-of-type { border-top: 0; }
+.kv-k { color: var(--ink-2); flex: 0 0 68px; font-size: 14px; }
+.kv-v { flex: 1; font-size: 14px; word-break: break-all; }
+
+.tagline {
+  display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: var(--brand-soft); color: var(--brand); margin-right: 6px;
+}
+
+/* ---------- 路由进度 ---------- */
+.route { list-style: none; margin: 0; padding: 0; }
+.route li { display: flex; gap: 11px; position: relative; padding-bottom: 16px; }
+.route li:last-child { padding-bottom: 0; }
+/* 竖线：连接各节点圆点 */
+.route li:not(:last-child)::before {
+  content: ""; position: absolute; left: 6px; top: 16px; bottom: 0;
+  width: 2px; background: var(--line);
+}
+.route li.is-first:not(:last-child)::before,
+.route li.is-last::before { background: var(--brand); }
+.route li.is-last:not(:last-child)::before { background: var(--line); }
+.dot {
+  flex: 0 0 14px; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--line); background: #fff; margin-top: 4px; z-index: 1;
+}
+.is-first .dot { border-color: var(--brand); background: var(--brand); }
+.is-last .dot { border-color: var(--brand); }
+.route-body { flex: 1; min-width: 0; }
+.route-name { font-size: 14px; font-weight: 500; }
+.route-code { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.role {
+  font-size: 11px; color: var(--ink-2); background: #f0f1f4;
+  padding: 1px 7px; border-radius: 6px; margin-left: 6px;
+}
+.is-first .role { background: var(--brand-soft); color: var(--brand); }
+.is-last .role { background: var(--brand-soft); color: var(--brand); }
+.route-note { font-size: 11.5px; color: var(--ink-3); margin-top: 6px; }
+
+/* 临时路由：非固化区字段，与规划路由不同，需要显著区分 */
+.alert {
+  background: var(--warn-soft); border: 1px solid #f0dcae; color: var(--warn);
+  border-radius: 10px; padding: 9px 11px; font-size: 13px; margin-top: 10px;
+}
+.alert b { font-weight: 600; }
+
+/* ---------- 脱敏 UID ---------- */
+.uid { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.privacy-note {
+  font-size: 11.5px; color: var(--ink-3); margin-top: 9px;
+  padding-top: 9px; border-top: 1px dashed var(--line);
+}
+
+/* ---------- 广告位 ---------- */
+.ad {
+  border-left: 3px solid var(--brand); background: #fafbfd;
+  border-radius: 0 10px 10px 0; padding: 10px 12px;
+}
+.ad-title { font-size: 14.5px; font-weight: 600; }
+.ad-body { font-size: 13px; color: var(--ink-2); margin-top: 3px; }
+.ad-link {
+  display: inline-block; font-size: 12.5px; color: var(--brand);
+  margin-top: 7px; text-decoration: none; font-weight: 500;
+}
+.ad-missing { border-left-color: var(--ink-3); }
+.ad-missing .ad-title { color: var(--ink-2); font-weight: 500; }
+.material img { max-width: 100%; border-radius: 10px; display: block; }
+.material figcaption { font-size: 12.5px; color: var(--ink-2); margin-top: 7px; }
+
+/* ---------- 留痕 ---------- */
+.stamp { display: flex; gap: 10px; padding: 4px 0; font-size: 13.5px; }
+.stamp-k { color: var(--ink-2); flex: 0 0 84px; }
+.stamp-v { flex: 1; font-variant-numeric: tabular-nums; word-break: break-all; }
+
+/* ---------- 状态提示 ---------- */
+.notice { border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.notice h2 { margin: 0 0 6px; font-size: 16px; }
+.notice p { margin: 0; font-size: 13.5px; }
+.notice-err { background: var(--err-soft); color: var(--err); }
+.notice-warn { background: var(--warn-soft); color: var(--warn); }
+.notice-info { background: var(--brand-soft); color: var(--brand); }
+.notice code {
+  background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 5px;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px;
+}
+.notice ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; }
+
+.foot {
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  font-size: 11px; color: var(--ink-3); text-align: center; line-height: 1.7;
+}
+
+/* ---------- 调试面板 ---------- */
+.debug { margin-top: 6px; }
+.debug summary { font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.debug textarea {
+  width: 100%; margin-top: 8px; min-height: 130px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 10px; resize: vertical;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
+  background: #fbfbfc; color: var(--ink);
+}
+.debug button {
+  margin-top: 8px; padding: 9px 16px; border: 0; border-radius: 9px;
+  background: var(--brand); color: #fff; font-size: 14px; font-weight: 500;
+}
+.debug-hint { font-size: 12px; color: var(--ink-3); margin-top: 7px; }

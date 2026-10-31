@@ -1,0 +1,6 @@
+{
+  "_comment": "Vercel 的 SPA 回退规则。只回退 /p/*，不做全站兜底 —— 理由见同目录 README.md。与 reader-h5/tools/serve_spa.py 行为一致。",
+  "rewrites": [
+    { "source": "/p/:waybill", "destination": "/index.html" }
+  ]
+}

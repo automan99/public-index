@@ -1,0 +1,29 @@
+# nginx 片段：把 /p/<运单号> 回退到 index.html
+#
+# 放进 server { } 块内，root 指向 reader-h5/ 的部署目录。
+#
+# 只回退 /p/，不做全站兜底 —— 理由见同目录 README.md。
+# 上面的 try_files 顺序即是「命中文件原样返回，否则给 index.html」。
+
+location /p/ {
+    try_files $uri $uri/ /index.html;
+}
+
+# 素材表与载荷数据：明确不做回退。
+# 若 data/adSlots.json 没部署上去，这里必须 404，而不是悄悄给一份 HTML ——
+# 否则页面会退回 embedded.js 内嵌副本，把「素材表没传上去」伪装成正常运行。
+location /data/ {
+    try_files $uri =404;
+    add_header Cache-Control "no-cache";
+}
+
+# 页面本体也带 no-cache：AC-09 依赖「每次打开都重新读素材表」。
+location = /index.html {
+    add_header Cache-Control "no-cache";
+}
+
+# ⚠️ 若把整个站点放在子路径下（如 https://<域名>/nfc/），
+# 除了改本文件的 location，还要用 --h5-base 重新注入标签 URL：
+#     python3 reader-h5/tools/build_data.py --h5-base https://<域名>/nfc/p/
+# 并且 app.js 的 waybillFromUrl() 按 /p/<运单号> 匹配 pathname，
+# 子路径下同样能取到运单号（正则不限前缀）。
