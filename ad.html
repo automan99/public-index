@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>广告详情 · NFC-PDA</title>
+<!--
+  广告落地页。快件页里的「了解详情 →」指向本页：ad.html?slot=A01。
+
+  为什么要有这张页：`adSlots.json` 的 landingUrl 原先指向 https://ad.example.com/a01
+  这类占位域名——页面本身渲染完全正常，只有用户真去点「了解详情 →」才会发现点不开。
+  演示时这恰恰是最容易被点到的地方，所以把落地页也做成站内真实页面，和验货素材图
+  用相对路径是同一个思路：素材表里不放假地址，链接点了就得能到。
+
+  文案仍然只来自 data/adSlots.json：改表即变，标签不用重写（AC-09）。
+-->
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">NFC 离线物流系统</span>
+      <span class="brand-sub">广告落地页</span>
+    </div>
+  </header>
+
+  <main id="main" class="main">
+    <p class="loading">正在加载…</p>
+  </main>
+
+  <footer class="foot">
+    <span>演示用广告落地页　文案来自 <code>data/adSlots.json</code>，改文案不用重写标签。</span>
+  </footer>
+</div>
+
+<!-- file:// 兜底数据（fetch 不可用时回退）。缺失也不影响 http 场景。 -->
+<script src="data/embedded.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var main = document.getElementById('main');
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // 只认 ?slot=A01；缺参数 / 参数为空都走降级提示，不白屏。
+  function slotId() {
+    var m = /[?&]slot=([^&]*)/.exec(location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function loadTable() {
+    return fetch('data/adSlots.json', { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .catch(function () {
+        // 和快件页同一条兜底：file:// 或静态资源缺失时用内嵌副本，页面不崩。
+        var embedded = window.__PDA_IOT_DATA__ && window.__PDA_IOT_DATA__.adSlots;
+        if (embedded) return embedded;
+        throw new Error('素材表加载失败');
+      });
+  }
+
+  function render(id, table) {
+    if (!id) {
+      main.innerHTML =
+        '<div class="notice notice-warn"><h2>缺少广告位编号</h2>' +
+        '<p>本页通过 <code>ad.html?slot=A01</code> 打开，请从快件页的「了解详情 →」进入。</p></div>';
+      return;
+    }
+
+    var slot = ((table || {}).slots || {})[id];
+    if (!slot) {
+      // 查不到时降级为占位文案，与快件页 resolveAd() 的口径一致：不留空、不报错。
+      main.innerHTML =
+        '<div class="card"><div class="card-title">广告详情</div>' +
+        '<div class="ad ad-missing"><div class="ad-title">广告位 ' + esc(id) + '</div>' +
+        '<div class="ad-body">素材表中暂无此广告位文案，已降级为占位显示。</div></div></div>';
+      return;
+    }
+
+    main.innerHTML =
+      '<div class="card">' +
+      '<div class="card-title">广告详情 · ' + esc(id) + '</div>' +
+      '<div class="ad ad-landing">' +
+      '<div class="ad-title">' + esc(slot.title) + '</div>' +
+      '<div class="ad-body">' + esc(slot.body) + '</div>' +
+      '</div>' +
+      '<p class="route-note">演示落地页：真实投放时，这一页由广告主自己的承接页替换；' +
+      '快件页只需要素材表里的 <code>landingUrl</code> 指向正确即可。</p>' +
+      '</div>' +
+      '<div class="card"><button class="ad-back" type="button" onclick="history.back()">← 返回</button></div>';
+  }
+
+  var id = slotId();
+  loadTable().then(function (table) {
+    render(id, table);
+  }).catch(function (e) {
+    main.innerHTML =
+      '<div class="notice notice-err"><h2>暂时无法展示广告</h2><p>' + esc(e.message) + '</p></div>';
+  });
+})();
+</script>
+</body>
+</html>

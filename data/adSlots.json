@@ -5,25 +5,25 @@
     "A01": {
       "title": "XX 物流 · 快件到家",
       "body": "扫码寄件首单立减 10 元",
-      "landingUrl": "https://ad.example.com/a01",
+      "landingUrl": "ad.html?slot=A01",
       "weight": 100
     },
     "A02": {
       "title": "XX 物流 · 同城当日达",
       "body": "同城 3 小时送达，超时赔付",
-      "landingUrl": "https://ad.example.com/a02",
+      "landingUrl": "ad.html?slot=A02",
       "weight": 100
     },
     "A03": {
       "title": "冷链直达 · 新鲜到家",
       "body": "全程 0-4℃ 温控，生鲜专线",
-      "landingUrl": "https://ad.example.com/a03",
+      "landingUrl": "ad.html?slot=A03",
       "weight": 100
     },
     "A04": {
       "title": "书香节 · 满百减三十",
       "body": "图书专场，满 100 减 30",
-      "landingUrl": "https://ad.example.com/a04",
+      "landingUrl": "ad.html?slot=A04",
       "weight": 100
     }
   }

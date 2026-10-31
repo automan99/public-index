@@ -8,6 +8,7 @@
 | 文件 | 作用 |
 | --- | --- |
 | `index.html` | 页面骨架 |
+| `ad.html` | **广告落地页**（`ad.html?slot=A01`），素材表 `landingUrl` 指向它 |
 | `app.js` | 全部逻辑：校验 → 指针解析 → 渲染 |
 | `styles.css` | 移动端优先的样式 |
 | `data/` | **构建产物**，由 `tools/build_data.py` 生成，不手工编辑 |
@@ -35,6 +36,7 @@ bash reader-h5/serve.sh                   # 默认 8080
 | --- | --- |
 | 演示数据 | `http://localhost:8080/index.html?w=202608080003` |
 | 线上正式形态 | `https://automan99.github.io/public-index/index.html?w=202608080003` |
+| 广告落地页 | `http://localhost:8080/ad.html?slot=A01`（线上同路径 `/public-index/ad.html?slot=A01`） |
 | 路径式（`/p/`，由 `404.html` 兼容） | `http://localhost:8080/p/202608080003` |
 | 调试入口 | `http://localhost:8080/index.html?debug=1` |
 
@@ -118,6 +120,10 @@ shared/mock_parcels.json ──build_data.py──▶ data/labels.json ──按
 
 **素材表每次打开都重新读取**（`fetch(..., {cache:'no-store'})`），不与标签绑定：
 改 `data/adSlots.json` 的文案，刷新页面即变，**标签一个字节都不用动**（AC-09 / D8）。
+
+广告落地页同理：`landingUrl` 用站内相对路径 `ad.html?slot=A01`（由 `<base>` 解析到站点根），
+随 H5 一起部署。验收会真的请求这个链接并打开落地页——只断言「有 href」不够，
+链接指向死域名时页面渲染照样正常，点开才会发现打不开。
 
 **降级表现**（单测覆盖）：广告位指针落空 → 显示「广告位 A99 + 素材表中暂无此广告位文案」；
 节点码落空 → 显示「节点 999999」；两者都不留空、不报错。

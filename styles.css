@@ -132,6 +132,15 @@ html, body {
 }
 .ad-missing { border-left-color: var(--ink-3); }
 .ad-missing .ad-title { color: var(--ink-2); font-weight: 500; }
+
+/* 广告落地页（ad.html）：同一份素材表，单页看一条广告 */
+.ad-landing .ad-title { font-size: 19px; }
+.ad-landing .ad-body { font-size: 14px; margin-top: 6px; }
+.ad-back {
+  width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 10px;
+  background: #fff; color: var(--brand); font-size: 14px; font-weight: 500;
+  font-family: inherit; cursor: pointer;
+}
 .material img { max-width: 100%; border-radius: 10px; display: block; }
 .material figcaption { font-size: 12.5px; color: var(--ink-2); margin-top: 7px; }
 
