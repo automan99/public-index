@@ -34,12 +34,17 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v6
       # 本项目没有构建链（需求 §5.2），页面直接读 data/ 下的素材表。
-      # 只发布运行时真正需要的文件，不把 tests/、tools/、deploy/、README 传到线上。
+      # 除开发/文档文件外整站发布：新增页面或静态资源会自动带上，
+      # 不会因为漏列白名单而在线上 404（ad.html 就踩过这个坑）。
       - name: Stage site files
         run: |
           mkdir -p _site
-          cp index.html app.js styles.css 404.html _site/
-          cp -R data _site/data
+          for f in *; do
+            case "$f" in
+              tests|tools|deploy|serve.sh|README.md|_site) continue ;;
+            esac
+            cp -R "$f" _site/
+          done
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
