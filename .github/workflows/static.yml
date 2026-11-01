@@ -41,7 +41,7 @@ jobs:
           mkdir -p _site
           for f in *; do
             case "$f" in
-              tests|tools|deploy|serve.sh|README.md|_site) continue ;;
+              tests|tools|deploy|docs|data-private|serve.sh|README.md|_site) continue ;;
             esac
             cp -R "$f" _site/
           done

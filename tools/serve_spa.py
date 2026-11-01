@@ -37,6 +37,9 @@ from urllib.parse import unquote, urlparse
 HERE = os.path.dirname(os.path.abspath(__file__))
 H5_DIR = os.path.abspath(os.path.join(HERE, os.pardir))
 
+# 不发布的目录：即使本机存在文件也一律 404，与生产发布清单保持一致。
+PRIVATE_SEGMENTS = frozenset(("data-private", "tools", "tests", "deploy", "docs"))
+
 
 class SPAHandler(SimpleHTTPRequestHandler):
     """静态文件 + 限定在 /p/ 下的 SPA 回退。"""
@@ -56,6 +59,12 @@ class SPAHandler(SimpleHTTPRequestHandler):
     def _prepare(self):
         """按生产规则改写 self.path；返回 False 表示应当直接 404。"""
         path = unquote(urlparse(self.path).path)
+
+        # 私有 / 开发目录不进发布产物；本机即使有文件也拒绝，避免演示时被直接下载。
+        rel = posixpath.normpath(path).lstrip("/")
+        if rel.split("/", 1)[0] in PRIVATE_SEGMENTS:
+            return False
+
         fs, exists = self._resolve()
 
         if exists:
