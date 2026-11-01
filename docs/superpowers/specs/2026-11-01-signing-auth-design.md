@@ -150,8 +150,8 @@ data-private/demo_phones.json   演示用完整手机号（假数据，waybill �
 3. 计算掩码 `前3位 + "****" + 后4位`；
 4. 每运单生成随机 salt（16B）与 IV（12B），`PBKDF2-SHA256(phone, salt, 600000)` → 256 位密钥，`AES-256-GCM` 加密标签 JSON；
 5. 读取现有 `data/adSlots.json`、`data/materials.json`、`data/nodes.json`，与 public/sealed 一起写出 `data/embedded.js`（供 `file://` 回退）；
-6. **自检**：在三个产物中搜索每个完整手机号、路由码、身份 UID；命中即失败；
-7. 若 `data/labels.json` 仍存在，报错提示先移入 `data-private/`；
+6. **自检**：在 `public` 文档中搜索每个完整手机号、路由码、身份 UID；在查找表中只搜索完整手机号（`nodes.json` 合法包含节点码，不能把表里的码当泄露）；`sealed` 只检查条目形状与完整手机号；命中即失败；
+7. 若 `data/labels.json` 仍存在：默认警告；`--final` 时视为错误并退出；`--check` 只校验现有产物、不重写；
 8. 失败时不得留下半成品（先写临时文件，校验通过再原子替换）。
 
 工具不参与 CI/部署；产物提交入库，README 说明重跑命令。
@@ -354,6 +354,7 @@ window.PdaSignApi = {
 | `data-private/demo_phones.json` | 演示手机号 |
 | `data/public.json` | 生成产物 |
 | `data/sealed.json` | 生成产物 |
+| `tests/sign_tests.js` | 密封工具与 sign-api 单测 |
 | `docs/superpowers/specs/2026-11-01-signing-auth-design.md` | 本规格 |
 
 ### 修改
@@ -364,7 +365,7 @@ window.PdaSignApi = {
 | `app.js` | boot 改为 public + sealed；新增 locked/unlocked/sign 流程；复用现有渲染 |
 | `styles.css` | 新增验证、签收、倒计时、成功卡样式 |
 | `data/embedded.js` | 由密封工具重新生成，移除明文详情 |
-| `tests/run_tests.js` | 改用本仓库 `data/` 与 `data-private/`；新增掩码、限流、记录构造单测 |
+| `tests/run_tests.js` | 改用本仓库 `data/` 与 `data-private/` 路径 |
 | `tests/acceptance.js` | 重写 AC-04/05/09；新增安全断言与签收流程 |
 | `tools/serve_spa.py` | 拒绝 `/data-private/`、`/tools/`、`/tests/`、`/docs/`、`/deploy/` 请求 |
 | `.github/workflows/static.yml` | 发布排除 `data-private`、`docs` |
@@ -377,13 +378,13 @@ window.PdaSignApi = {
 
 ## 10. 测试与验收
 
-### 10.1 单元测试（`tests/run_tests.js`）
+### 10.1 单元测试（`tests/run_tests.js` + `tests/sign_tests.js`）
 
 - 手机号归一化与校验：空格/连字符、位数、非法号段；
 - 掩码函数：`13800001111` → `138****1111`；
 - 尝试状态机：5 次失败锁定、到期解锁、成功清零（注入时间）；
 - 记录构造：字段齐全、无完整手机号、幂等不覆盖；
-- 产物泄露检查：`data/public.json`、`data/sealed.json`、`data/embedded.js` 不含演示手机号、路由码、身份 UID；
+- 产物泄露检查：`public.json` 与 `embedded.js` 的浅信息部分不含演示手机号、路由码、身份 UID；查找表只检查手机号；`sealed.json` 条目只含 `salt/iv/ciphertext`；
 - 现有 `validate` / `routeNodesOf` / 指针降级 / 转义测试全部保留；
 - 路径修正：不再依赖仓库外的 `shared/`，改用本仓库 `data/` 与 `data-private/`。
 
