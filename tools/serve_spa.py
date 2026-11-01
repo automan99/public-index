@@ -56,13 +56,37 @@ class SPAHandler(SimpleHTTPRequestHandler):
         fs = os.path.join(self.directory, rel)
         return fs, os.path.isfile(fs)
 
+    def _real_path_is_private(self, path):
+        """兜底：按真实文件系统路径判断是否落入私有目录。
+
+        仅比较字面首段挡不住平台差异 —— Windows/NTFS 文件名大小写不敏感、
+        打开时忽略尾随点和空格，反斜杠也是分隔符。translate_path() 给出实际
+        要读取的本机路径，realpath() 再解析成真实大小写，然后与私有目录比较。
+        """
+        target = os.path.normcase(os.path.realpath(self.translate_path(path)))
+        root = os.path.realpath(self.directory)
+        for name in PRIVATE_SEGMENTS:
+            base = os.path.normcase(os.path.join(root, name))
+            if target == base or target.startswith(base + os.sep):
+                return True
+        return False
+
     def _prepare(self):
         """按生产规则改写 self.path；返回 False 表示应当直接 404。"""
         path = unquote(urlparse(self.path).path)
 
         # 私有 / 开发目录不进发布产物；本机即使有文件也拒绝，避免演示时被直接下载。
-        rel = posixpath.normpath(path).lstrip("/")
-        if rel.split("/", 1)[0] in PRIVATE_SEGMENTS:
+        # 先归一化再比较：反斜杠按分隔符处理，忽略大小写与尾随点/空格。
+        rel = posixpath.normpath(path.replace("\\", "/")).lstrip("/")
+        first = rel.split("/", 1)[0].lower().rstrip(". ")
+        if first in PRIVATE_SEGMENTS:
+            return False
+
+        try:
+            if self._real_path_is_private(self.path):
+                return False
+        except (OSError, ValueError):
+            # 真实路径无法判定时宁可拒绝
             return False
 
         fs, exists = self._resolve()
