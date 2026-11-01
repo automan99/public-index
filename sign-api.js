@@ -468,7 +468,7 @@
     sealedDoc = p.sealedDoc && typeof p.sealedDoc === 'object' ? p.sealedDoc : null;
   }
 
-  function getPublic(waybill) {
+  async function getPublic(waybill) {
     var table = publicDoc && publicDoc.waybills;
     if (!table || typeof table !== 'object') return null;
     var entry = table[waybill];
@@ -537,6 +537,11 @@
     if (existing) return existing;
 
     var device = await buildDevice();
+
+    // 二次读取兜底（spec §7.2）：等待设备指纹期间可能有并发调用先写入。
+    var raced = getRecord(waybill);
+    if (raced) return raced;
+
     var record = buildSignRecord({
       waybill: waybill,
       phoneMask: p.phoneMask,

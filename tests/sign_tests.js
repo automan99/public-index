@@ -80,9 +80,9 @@ async function testSignApi() {
   assert.strictEqual(api.isCryptoAvailable(), true);
 
   api.configure({ publicDoc: pub, sealedDoc: sealed });
-  assert.strictEqual(api.getPublic(W).n, pub.waybills[W].n);
-  assert.strictEqual(api.getPublic(W).phoneMask, pub.waybills[W].phoneMask);
-  assert.strictEqual(api.getPublic('不存在'), null);
+  assert.strictEqual((await api.getPublic(W)).n, pub.waybills[W].n);
+  assert.strictEqual((await api.getPublic(W)).phoneMask, pub.waybills[W].phoneMask);
+  assert.strictEqual(await api.getPublic('不存在'), null);
 
   // 正确手机号（前后空格 / +86）
   let unlocked = await api.unlock({ waybill: W, phone: ' ' + phone + ' ' });
@@ -216,6 +216,22 @@ async function testSignApi() {
   assert.strictEqual(fallback.hooks.getAttemptState(W).fails, 1);
   fallback.hooks.resetAttempts(W);
   assert.strictEqual(fallback.hooks.getAttemptState(W).fails, 0);
+
+  // 并发签收（spec §7.2 二次读取）：两次并发只落一个 eventId，且都返回它
+  const concurrent = loadSignApi();
+  concurrent.api.configure({ publicDoc: pub, sealedDoc: sealed });
+  const [c1, c2] = await Promise.all([
+    concurrent.api.sign({ waybill: W, detail: unlocked.detail, contentHash: unlocked.contentHash,
+      phoneMask: pub.waybills[W].phoneMask, now: 10000 }),
+    concurrent.api.sign({ waybill: W, detail: unlocked.detail, contentHash: unlocked.contentHash,
+      phoneMask: pub.waybills[W].phoneMask, now: 11000 }),
+  ]);
+  assert.strictEqual(c1.eventId, c2.eventId);
+  assert.strictEqual(concurrent.api.getRecord(W).eventId, c1.eventId);
+  const stored = JSON.parse(concurrent.store.get('pda_sign_' + W));
+  assert.strictEqual(stored.eventId, c1.eventId);
+  assert.ok([new Date(10000).toISOString(), new Date(11000).toISOString()].includes(
+    stored.signedAt));
 
   // 无 subtle：明确报 CRYPTO，而不是静默失败
   const noCrypto = loadSignApi({ noCrypto: true });

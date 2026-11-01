@@ -207,7 +207,7 @@ git commit -m "feat(data): 新增密封工具、加密数据与私有路径护�
 ```js
 {
   configure({ publicDoc, sealedDoc }): void,
-  getPublic(waybill): ShallowInfo | null,
+  getPublic(waybill): Promise<ShallowInfo | null>,
   unlock({ waybill, phone }): Promise<{ detail, contentHash }>,
   getAttemptState(waybill, now?): { fails, remaining, lockUntil, locked },
   getRecord(waybill): SignRecord | null,
@@ -440,7 +440,7 @@ Expected: FAIL（页面仍在读取 `labels.json`，且未渲染门禁）
 
 要求：
 - `loadJSON` 改为 `public.json → public`、`sealed.json → sealed`、查找表键不变；`file://` 回退读 `embedded.js` 的 `public/sealed/adSlots/materials/nodes` 键；
-- `boot()`：加载 5 份数据；`PdaSignApi.configure({ publicDoc, sealedDoc })`；取 URL 运单号；`getPublic(w)`；无结果 → “未找到运单” notice；`isCryptoAvailable()` 为 false → 可读的 HTTPS/localhost 提示；读取本机 `getRecord(w)`；渲染 locked；`?debug=1` 仅在 `isLocalhost()` 时启用；`window.PdaSignApi` 不存在时显示可读错误；
+- `boot()`：加载 5 份数据；`PdaSignApi.configure({ publicDoc, sealedDoc })`；取 URL 运单号；`await getPublic(w)`（`boot` 需声明为 `async`）；无结果 → “未找到运单” notice；`isCryptoAvailable()` 为 false → 可读的 HTTPS/localhost 提示；读取本机 `getRecord(w)`；渲染 locked；`?debug=1` 仅在 `isLocalhost()` 时启用；`window.PdaSignApi` 不存在时显示可读错误；
 - `renderLocked`：常驻 `.demo-banner`、浅信息卡、脱敏手机号、`#phone-input`（`type=text`、`inputmode=numeric`、`autocomplete=off`、`spellcheck=false`）、`#verify-btn`、`#gate-error`（`aria-live="polite"`）、`#lockout`、隐私说明“手机号仅用于本机解密，不上传、不保存”、`.status-pill`（有本机记录时）；
 - `handleVerify`：进入 verifying 时禁用按钮与输入并显示“验证中…”；调用 `unlock`；成功清空输入、`renderFull(detail, ctx, record)`、更新 `.verified-badge`；失败按 code 渲染：
   - `FORMAT` → “请输入 11 位手机号”
