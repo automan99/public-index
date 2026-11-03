@@ -560,6 +560,31 @@ async function main() {
     check('展示收件人脱敏 UID', htmlUnlocked.includes(label.f.i.r));
     check(`展示广告位 ${label.f.m.a} 的文案（来自素材表）`, ad ? await page.has(ad.title) : false,
       ad ? undefined : `素材表里没有 ${label.f.m.a}`);
+
+    // 广告落地页：页面上有「了解详情 →」不等于链接点得开。landingUrl 若仍指向
+    // example.com 占位，页面渲染完全正常，只有真正点进去才会 404 —— 所以这里把
+    // 链接取出来发一次真实请求，并打开它确认落地页真的渲染出了这条广告。
+    const adHref = await page.evaluate(`(() => {
+      const el = document.querySelector('.ad-link');
+      return el ? el.href : null;
+    })()`);
+    check(`广告位 ${label.f.m.a} 有落地页链接`, !!adHref,
+      adHref ? undefined : '页面里没有 .ad-link');
+    if (adHref) {
+      let adStatus = 0;
+      try {
+        adStatus = (await fetch(adHref, { signal: AbortSignal.timeout(5000) })).status;
+      } catch (_) { /* 请求失败按 0 记，下面报 FAIL */ }
+      check(`广告落地页返回 200（${adHref}）`, adStatus === 200,
+        `实际 HTTP ${adStatus || '请求失败'}`);
+      if (adStatus === 200 && ad) {
+        const adPage = await browser.newPage();
+        await adPage.emulateMobile();
+        await adPage.goto(adHref);
+        check(`广告落地页展示「${ad.title}」`, await adPage.has(ad.title));
+      }
+    }
+
     if (material) {
       check(`展示验货素材 ${label.f.m.p} 的说明`, await page.has(material.caption));
       if (material.type === 'photo') {

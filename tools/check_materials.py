@@ -20,8 +20,8 @@
     3. **字段缺失**（ERROR）—— 表项少了必填字段，渲染出来是空块。
 
 用法：
-    python3 reader-h5/tools/check_materials.py                 # 换表期间自查
-    python3 reader-h5/tools/check_materials.py --require-final # 定稿验收（演示数据即失败）
+    python3 tools/check_materials.py                 # 换表期间自查
+    python3 tools/check_materials.py --require-final # 定稿验收（演示数据即失败）
 """
 import argparse
 import json
@@ -31,8 +31,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 H5_DIR = os.path.abspath(os.path.join(HERE, os.pardir))
-REPO = os.path.abspath(os.path.join(H5_DIR, os.pardir))
-SHARED = os.path.join(REPO, "shared")
+DATA_DIR = os.path.join(H5_DIR, "data")
 
 DEMO_MARKERS = [
     (re.compile(r"example\.com"), "URL 仍指向 example.com"),
@@ -47,7 +46,7 @@ REQUIRED = {
 
 
 def load(name):
-    with open(os.path.join(SHARED, name), encoding="utf-8") as f:
+    with open(os.path.join(DATA_DIR, name), encoding="utf-8") as f:
         return json.load(f)
 
 

@@ -218,7 +218,11 @@ data-private/demo_phones.json  演示手机号（假号码，不发布）
 5. 标签只写不透明 ID，详情不再固化在标签 MIME 记录里；
 6. 仓库私有化，明文手机号与详情源不入库；敏感验货图走鉴权接口。
 
-`sign-api.js` 的 `window.PdaSignApi` 接口即为替换点，页面与 UI 不需要重写。
+`sign-api.js` 的 `window.PdaSignApi` 接口是替换点：`getPublic` / `unlock` / `sign`
+已经是异步接口，可原地替换为 HTTP 调用。但 `getRecord` / `getAttemptState` 目前是
+**同步 localStorage 读取**（演示实现），接服务端时需改为异步，并小幅调整页面状态
+（读取本机记录、检查锁定与剩余次数都要等待 Promise）。渲染与 UI 结构基本可以保留，
+但这处适配不能省。
 
 ---
 
@@ -234,7 +238,7 @@ data-private/demo_phones.json  演示手机号（假号码，不发布）
 | 展示脱敏 UID，标注不含明文手机号 | `renderIdentity()` |
 | 读取端**不实现** UID 算法、**不识别**标签批次 | 全篇无相关代码（INV-6） |
 | 标签内容是不可信输入 | 所有插值走 `esc()` |
-| 验证前只给浅信息 | `renderGate()` / `renderFull(..., {debug:false})` |
+| 验证前只给浅信息 | `renderLocked()` / `renderFull(..., {debug:false})` |
 | 详情解密失败与手机号错误同一提示 | `sign-api.js` 的 `unlock()` |
 
 **素材表每次打开都重新读取**（`fetch(..., {cache:'no-store'})`），不与标签绑定：

@@ -37,7 +37,7 @@
         var embedded = (window.__PDA_IOT_DATA__ || {})[embeddedKey];
         if (embedded) return embedded;
         throw new Error('无法加载 data/' + file +
-          '（请用 reader-h5/serve.sh 启动本地静态服务，而不是直接双击打开）');
+          '（请用 bash serve.sh 启动本地静态服务，而不是直接双击打开）');
       });
   }
 

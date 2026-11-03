@@ -452,7 +452,10 @@ window.PdaSignApi = {
 5. 标签只写不透明 ID，详情不再固化在标签 MIME 记录里；
 6. 仓库私有化，明文手机号与详情源不入库；敏感验货图走鉴权接口。
 
-§8 的 `PdaSignApi` 接口即为替换点；页面与 UI 不需要重写。
+§8 的 `PdaSignApi` 接口是替换点：`getPublic` / `unlock` / `sign` 已经是异步接口，
+可原地替换为 HTTP 调用。但 `getRecord` / `getAttemptState` 当前是**同步 localStorage
+读取**（演示实现），接服务端时需改为异步，并小幅调整页面状态（读取本机记录、
+检查锁定与剩余次数要等待 Promise）。渲染与 UI 结构基本可以保留，但这处适配不能省。
 
 ### 11.3 仓库同步
 
