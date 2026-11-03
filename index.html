@@ -11,9 +11,9 @@
   404.html 交给本页）；当前演示部署是 GitHub Pages 项目页，正式形态为
   https://automan99.github.io/public-index/index.html?w=<运单号>。浏览器不知道
   「/p/202608080001 其实是站点根的那张页面」—— 在 /p/202608080001 这样的地址下，
-  裸相对路径 styles.css / app.js / data/labels.json 会被解析到 **/p/** 下，
+  裸相对路径 styles.css / app.js / data/public.json 会被解析到 **/p/** 下，
   于是每个资源都命中同一条回退规则、拿回一份 HTML（Content-Type: text/html）。
-  结果：CSS 不生效、app.js 报语法错、labels.json 的 r.json() 解析失败 ——
+  结果：CSS 不生效、app.js 报语法错、public.json 的 r.json() 解析失败 ——
   页面在生产形态的 URL 下**什么都渲染不出来**。
 
   这里把站点根显式算出来写进 <base>，一次性覆盖各种部署形态：
@@ -21,7 +21,7 @@
       /nfc/p/<运单号>        → /nfc/
       /public-index/index.html → /public-index/
       /index.html            → /
-      file:///…/reader-h5/…  → 同级目录（file:// 兜底路径仍可用）
+      file:///…/public-index/… → 同级目录（file:// 兜底路径仍可用）
   这样 index.html、app.js 里的相对路径**一行都不用改**，也不需要构建链（需求 §5.2）。
 -->
 <script>

@@ -7,7 +7,7 @@
  *   · INV-1          全路由编码必须能每 6 位无损切分还原节点
  *   · AC-10 / INV-5  空值不落标签
  *
- * 用法：node reader-h5/tests/run_tests.js
+ * 用法：node tests/run_tests.js
  */
 'use strict';
 
