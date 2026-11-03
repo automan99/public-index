@@ -17,6 +17,7 @@
 | --- | --- |
 | `index.html` | 页面骨架（签收入口） |
 | `ad.html` | **广告落地页**（`ad.html?slot=A01`），素材表 `landingUrl` 指向它 |
+| `404.html` | 静态托管的 `/p/<运单号>` 兼容页：前端跳到 `?w=` 形态（GitHub Pages 用） |
 | `app.js` | 页面逻辑：门禁状态机、签收流程、完整内容渲染 |
 | `sign-api.js` | 签收 API 抽象 + 演示实现（解密、尝试限制、本机记录） |
 | `styles.css` | 移动端优先的样式 |
@@ -221,7 +222,9 @@ data-private/demo_phones.json  演示手机号（假号码，不发布）
 
 ---
 
-## 五、契约消费点（对着 `shared/README.md` §五 逐条实现）
+## 五、契约消费点（对照上游 `pda-iot` 仓库的 `shared/README.md` §五 逐条实现）
+
+> 本仓库不包含 `shared/`；`shared/README.md` 位于上游 `pda-iot` 仓库，路径相对该仓库根目录。
 
 | 契约要求 | 实现位置 |
 | --- | --- |
@@ -310,8 +313,8 @@ CSS 不生效（拿回的是 HTML） → app.js 报语法错 → public.json 的
 能不能被读取端正确渲染」，不必等端到端打通。
 
 ```bash
-# 拿一条载荷来试
-python3 shared/tools/build_label.py --dump 3
+# 从本地明文源取一条载荷（仅本地，不部署；也可粘贴 PDA 写入端导出的载荷 JSON）
+node -e "const l=require('./data-private/labels.json').labels; console.log(JSON.stringify(l['202608080003']))"
 ```
 
 ---
@@ -338,7 +341,7 @@ python3 shared/tools/build_label.py --dump 3
 `index.html`、`app.js`、`sign-api.js`、`styles.css`、`ad.html`、`404.html` 与
 `data/`（`public.json`、`sealed.json`、`embedded.js`、`adSlots.json`、`materials.json`、
 `nodes.json`、`materials/`）；**不发布** `data-private/`、`data/labels.json`（已删除）、
-`tools/`、`tests/`、`docs/`、`deploy/`、`README.md`。
+`tools/`、`tests/`、`docs/`、`deploy/`、`README.md`、`serve.sh`。
 
 `.github/workflows/static.yml` 已排除 `data-private`、`docs`、`tools`、`tests`、`deploy`、
 `serve.sh`、`README.md`。

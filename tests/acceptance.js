@@ -15,7 +15,7 @@
  *
  * 用法：
  *   node tests/acceptance.js                          # 自己起服务，全跑（含 AC-09）
- *   node tests/acceptance.js --base https://<域名>     # 打线上，只跑 AC-04/05
+ *   node tests/acceptance.js --base https://<域名>     # 打线上，跑 AC-04 / AC-04-S / AC-05（跳过 AC-09）
  *   node tests/acceptance.js --base https://<域名> --form=query
  *
  * CHROME 环境变量可指定浏览器路径；Windows 示例：
