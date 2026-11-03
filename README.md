@@ -132,6 +132,9 @@ python3 tools/check_materials.py --require-final # 定稿验收：演示数据�
 **碰标签时，浏览器只拿到 NDEF 的 URI 记录（URL），拿不到主数据记录（JSON 载荷）。**
 这是系统行为，不是实现取舍——iOS/Android 都只把 URI 交给浏览器。
 
+> 因此写入端必须把 **URI 记录排第一条**：系统级 NDEF 分发只看首条记录，MIME 记录在前时
+> 浏览器根本不会被唤起。MIME/JSON 记录放后面不影响本页（本页按运单号查表，不读标签 JSON）。
+
 所以页面必须自己拿到数据。本期做法：
 
 ```
