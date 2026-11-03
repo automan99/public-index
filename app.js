@@ -13,6 +13,9 @@
 
   var SUPPORTED_V = '2';
   var LABEL_TYPE = 'pda-iot-label';
+  var DEMO_BANNER = '演示环境：详情为加密演示数据；签收记录仅保存在本机，不具备法律效力。';
+  var LOCK_FALLBACK_MS = 60 * 1000;
+  var lockTimer = null;
 
   // ============================================================
   // 一、数据加载
@@ -259,7 +262,11 @@
   }
 
   // ============================================================
-  // 五、入口：URL → 载荷 → 页面
+  // 五、入口：URL → 浅信息 → 手机号门禁 → 详情
+  //
+  // 隐私边界（spec §6）：详情以「完整手机号派生的密钥」加密，未验证时页面里
+  // **不得出现**路由、UID、广告、素材、留痕 —— 连隐藏节点都不行。手机号只用于
+  // 本机解密，不写入任何存储。
   // ============================================================
 
   function waybillFromUrl() {
@@ -271,19 +278,213 @@
     return q ? q : null;
   }
 
-  function render(label, ctx) {
+  function isLocalhost() {
+    if (typeof location === 'undefined') return false;
+    var h = location.hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
+  }
+
+  function setBadge(text) {
+    var el = document.getElementById('source-badge');
+    if (el) el.textContent = text;
+  }
+
+  function setFootMeta(publicDoc) {
+    var el = document.getElementById('foot-meta');
+    if (!el) return;
+    var meta = (publicDoc && publicDoc.meta) || {};
+    el.innerHTML = '加密演示数据（详情需手机号验证）' +
+      '<br>数据源：' + esc(meta.generatedFrom || '—') +
+      '　生成时间：' + esc(meta.generatedAt || '—') +
+      '　契约版本 v' + SUPPORTED_V + '<br>' +
+      esc(meta.securityNote || '浅信息为公开数据；详情为加密数据。') +
+      '浏览器无 NFC 读取能力，载荷不经 URL 传递。';
+  }
+
+  function renderDemoBanner() {
+    return '<div class="demo-banner" role="note">' + esc(DEMO_BANNER) + '</div>';
+  }
+
+  function formatRecordTime(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    function p(n) { return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+      ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  /* 浅信息卡：运单号 / 物品 / 重量 / 服务。详情字段一律不在这里出现。 */
+  function renderShallow(info) {
+    var i = info || {};
+    return '<section class="card gate-card">' +
+      '<h2 class="card-title">运单信息</h2>' +
+      '<p class="hero-no">' + esc(i.w || '') + '</p>' +
+      '<p class="hero-no-label">运单号</p>' +
+      kv('物品', esc(i.n || '')) +
+      kv('重量', esc(i.g || '')) +
+      kv('服务', esc(i.service || '—')) +
+      '</section>';
+  }
+
+  /* 未验证视图：浅信息 + 脱敏手机号 + 手机号表单 + 错误/锁定区 + 隐私说明。 */
+  function renderLocked(info, ctx, record) {
+    var pill = record
+      ? '<div class="status-pill">已签收（本机记录）· ' + esc(formatRecordTime(record.signedAt)) + '</div>'
+      : '';
+    var html = renderDemoBanner() +
+      renderShallow(info) +
+      '<section class="card gate-card">' +
+        pill +
+        '<p class="phone-mask">' + esc((info && info.phoneMask) || '') + '</p>' +
+        '<p class="phone-hint">为保护收件人隐私，请输入完整手机号验证</p>' +
+        '<form class="phone-form" id="phone-form" novalidate>' +
+          '<input id="phone-input" class="phone-input" type="text" inputmode="numeric" ' +
+            'autocomplete="off" spellcheck="false" aria-label="收件人手机号" ' +
+            'placeholder="请输入 11 位手机号">' +
+          '<button id="verify-btn" class="verify-btn" type="submit">验证并查看</button>' +
+        '</form>' +
+        '<p id="gate-error" class="gate-error" aria-live="polite"></p>' +
+        '<div id="lockout" class="lockout" role="status" aria-live="polite" hidden></div>' +
+        '<p class="privacy-note">手机号仅用于本机解密，不上传、不保存。</p>' +
+      '</section>';
+
+    document.getElementById('main').innerHTML = html;
+    setBadge('加密演示数据');
+    ctx.info = info;
+    bindVerify(info);
+
+    var state = window.PdaSignApi.getAttemptState(ctx.waybill);
+    if (state.locked) startLockoutCountdown(state.lockUntil);
+  }
+
+  function bindVerify(info) {
+    var form = document.getElementById('phone-form');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      handleVerify(info);
+    });
+  }
+
+  /* 验证中禁用控件；成功渲染详情；失败按错误码给出统一、可读的提示。 */
+  function handleVerify(info) {
+    var api = window.PdaSignApi;
+    var input = document.getElementById('phone-input');
+    var btn = document.getElementById('verify-btn');
+    var errEl = document.getElementById('gate-error');
+    var lockEl = document.getElementById('lockout');
+    if (!api || !input || !btn || btn.disabled) return Promise.resolve();
+
+    var labelText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '验证中…';
+    input.disabled = true;
+    if (errEl) errEl.textContent = '';
+    if (lockEl) { lockEl.hidden = true; lockEl.textContent = ''; }
+
+    var ctx = window.__ctx || {};
+    return api.unlock({ waybill: ctx.waybill, phone: input.value }).then(function (res) {
+      input.value = '';
+      btn.disabled = false;
+      btn.textContent = labelText;
+      input.disabled = false;
+      renderFull(res.detail, ctx, api.getRecord(ctx.waybill));
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = labelText;
+      input.disabled = false;
+      var code = err && err.code;
+
+      if (code === 'FORMAT') {
+        if (errEl) errEl.textContent = '请输入 11 位手机号';
+        return;
+      }
+      if (code === 'MISMATCH') {
+        var st = api.getAttemptState(ctx.waybill);
+        if (errEl) {
+          errEl.textContent = '手机号与运单信息不匹配，请核对后重试（剩余 ' + st.remaining + ' 次）';
+        }
+        if (st.locked) startLockoutCountdown(st.lockUntil);
+        return;
+      }
+      if (code === 'LOCKED') {
+        var locked = api.getAttemptState(ctx.waybill);
+        if (errEl) errEl.textContent = '';
+        startLockoutCountdown(locked.lockUntil || Date.now() + LOCK_FALLBACK_MS);
+        return;
+      }
+      if (code === 'DATA') {
+        if (errEl) errEl.textContent = '数据格式错误，暂时无法展示详情。';
+        return;
+      }
+      if (code === 'CRYPTO') {
+        if (errEl) errEl.textContent = '当前环境不支持安全解密（需要 HTTPS 或 localhost）。';
+        return;
+      }
+      if (errEl) errEl.textContent = '验证失败，请稍后重试。';
+    });
+  }
+
+  /* 每秒刷新 #lockout；倒计时结束恢复输入。锁定期间正确手机号也不放行。 */
+  function startLockoutCountdown(lockUntil) {
+    if (lockTimer) clearInterval(lockTimer);
+    var until = typeof lockUntil === 'number' && isFinite(lockUntil) && lockUntil > Date.now()
+      ? lockUntil : Date.now() + LOCK_FALLBACK_MS;
+    var input = document.getElementById('phone-input');
+    var btn = document.getElementById('verify-btn');
+    var lockEl = document.getElementById('lockout');
+
+    function finish() {
+      clearInterval(lockTimer);
+      lockTimer = null;
+      if (input) input.disabled = false;
+      if (btn) { btn.disabled = false; btn.textContent = '验证并查看'; }
+      if (lockEl) {
+        lockEl.hidden = true;
+        lockEl.textContent = '';
+      }
+      var errEl = document.getElementById('gate-error');
+      if (errEl) errEl.textContent = '锁定已解除，请重新验证。';
+    }
+
+    function tick() {
+      var left = Math.ceil((until - Date.now()) / 1000);
+      if (left <= 0) { finish(); return; }
+      var mm = String(Math.floor(left / 60)).padStart(2, '0');
+      var ss = String(left % 60).padStart(2, '0');
+      if (lockEl) {
+        lockEl.hidden = false;
+        lockEl.textContent = '尝试次数过多，请在 ' + mm + ':' + ss + ' 后重试。';
+      }
+      if (input) input.disabled = true;
+      if (btn) btn.disabled = true;
+    }
+
+    tick();
+    if (!lockTimer) lockTimer = setInterval(tick, 1000);
+  }
+
+  /* 已验证视图：复跑契约校验，通过后复用现有卡片渲染。本任务不渲染签收卡。 */
+  function renderFull(label, ctx, record, options) {
+    var opts = options || {};
     var v = validate(label);
-    var html = '';
+    var html = renderDemoBanner();
 
     if (v.errors.length) {
-      // 契约要求：校验失败不得崩溃，给出可读提示（BR-05）
-      html += renderNotice('err', '无法展示此标签',
+      html += renderNotice('err', '数据格式错误',
         '<ul>' + v.errors.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>');
       document.getElementById('main').innerHTML = html;
-      document.getElementById('source-badge').textContent = ctx.badge;
+      setBadge(opts.debug ? '调试渲染' : '已解锁');
       return;
     }
 
+    html += '<div class="verified-badge" role="status">' +
+      (opts.debug ? '调试渲染（未验证）' : '已验证') + '</div>';
+    if (record) {
+      html += '<div class="status-pill">已签收（本机记录）· ' +
+        esc(formatRecordTime(record.signedAt)) + '</div>';
+    }
     html += renderWarnings(v.warnings);
     html += renderHero(label);
     html += renderRoute(label, ctx.nodes);
@@ -293,79 +494,127 @@
     html += renderStamp(label);
 
     document.getElementById('main').innerHTML = html;
-    document.getElementById('source-badge').textContent = ctx.badge;
+    setBadge(opts.debug ? '调试渲染' : '已解锁');
+    ctx.unlocked = true;
   }
 
-  function renderDebugEntry(hint) {
-    // 调试入口：把一张真标签的载荷贴进来渲染。
-    // PDA 写入端和第三方 NFC 工具都能导出载荷 JSON，这里用于**真机联调**而不必先部署域名。
+  function renderDebugEntry(ctx) {
+    // 调试入口：把一张真标签的载荷贴进来渲染。仅在 localhost 且 ?debug=1 时启用，
+    // 生产域名下忽略该参数，避免绕过加密。
     var box = document.getElementById('debug-box');
     if (!box) return;
     box.hidden = false;
-    if (hint) document.getElementById('debug-hint').textContent = hint;
-    document.getElementById('debug-go').addEventListener('click', function () {
-      var raw = document.getElementById('debug-input').value;
-      try {
-        render(JSON.parse(raw), window.__ctx);
-      } catch (e) {
-        document.getElementById('main').insertAdjacentHTML('afterbegin',
-          renderNotice('err', 'JSON 解析失败', esc(e.message)));
-      }
-    });
+    var btn = document.getElementById('debug-go');
+    if (btn && !btn.dataset.bound) {
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', function () {
+        var raw = document.getElementById('debug-input').value;
+        try {
+          renderFull(JSON.parse(raw), ctx || window.__ctx, null, { debug: true });
+        } catch (e) {
+          document.getElementById('main').insertAdjacentHTML('afterbegin',
+            renderNotice('err', 'JSON 解析失败', esc(e.message)));
+        }
+      });
+    }
   }
 
   function fail(msg) {
     document.getElementById('main').innerHTML =
-      renderNotice('err', '暂时无法展示', esc(msg));
+      renderDemoBanner() + renderNotice('err', '暂时无法展示', esc(msg));
+    setBadge('加载失败');
   }
 
-  function boot() {
-    Promise.all([
-      loadJSON('labels.json', 'labels'),
-      loadJSON('adSlots.json', 'adSlots'),
-      loadJSON('materials.json', 'materials'),
-      loadJSON('nodes.json', 'nodes'),
-    ]).then(function (res) {
-      var payload = res[0] || {};
-      var ctx = {
-        labels: payload.labels || {},
-        adSlots: res[1], materials: res[2], nodes: res[3],
-        badge: '演示数据集',
-      };
-      window.__ctx = ctx;
+  function renderNotFound(w, publicDoc) {
+    var list = (publicDoc && publicDoc.meta && publicDoc.meta.waybills) || [];
+    var body = '演示数据集内含：<code>' + list.map(esc).join('</code> <code>') + '</code>' +
+      '<br>正确形式：/p/&lt;运单号&gt; 或 ?w=&lt;运单号&gt;。';
+    document.getElementById('main').innerHTML = renderDemoBanner() +
+      renderNotice('info', w ? '未找到运单 ' + esc(w) : '未找到运单', body);
+    setBadge('未找到运单');
+  }
 
-      var meta = payload.meta || {};
-      document.getElementById('foot-meta').innerHTML =
-        '数据源：' + esc(meta.generatedFrom || '—') + '<br>' +
-        '生成时间戳：' + esc(meta.timestamp || '—') + '　契约版本 v' + SUPPORTED_V + '<br>' +
-        '演示期页面数据与 PDA 写入端同源；浏览器无 NFC 读取能力，载荷不经 URL 传递。';
+  function renderCryptoError() {
+    document.getElementById('main').innerHTML = renderDemoBanner() +
+      renderNotice('err', '当前环境无法安全验证',
+        '浏览器加密能力（Web Crypto）仅在 HTTPS 或 localhost 下可用。' +
+        '请通过 HTTPS 或 localhost 打开本页后再验证手机号。');
+    setBadge('环境不支持');
+  }
 
-      var w = waybillFromUrl();
-      if (!w && location.search.indexOf('debug') === -1) {
-        w = meta.waybills && meta.waybills[0];
+  async function asyncBoot(publicDoc, sealedDoc, adSlots, materials, nodes) {
+    publicDoc = publicDoc || {};
+    sealedDoc = sealedDoc || {};
+    var ctx = {
+      publicDoc: publicDoc,
+      sealedDoc: sealedDoc,
+      adSlots: adSlots,
+      materials: materials,
+      nodes: nodes,
+      unlocked: false,
+      waybill: null,
+    };
+    window.__ctx = ctx;
+    setFootMeta(publicDoc);
+
+    var api = window.PdaSignApi;
+    if (!api || typeof api.configure !== 'function') {
+      fail('签收组件未加载（缺少 sign-api.js），无法验证手机号。');
+      return;
+    }
+    api.configure({ publicDoc: publicDoc, sealedDoc: sealedDoc });
+
+    var w = waybillFromUrl();
+    var debugMode = isLocalhost() && new URLSearchParams(location.search).get('debug') === '1';
+
+    if (!w) {
+      if (debugMode) {
+        document.getElementById('main').innerHTML = renderDemoBanner() +
+          renderNotice('info', '调试模式',
+            '未指定运单号；可以粘贴一张真标签的载荷 JSON 来渲染。');
+        setBadge('调试模式');
+        renderDebugEntry(ctx);
+      } else {
+        renderNotFound(null, publicDoc);
       }
+      return;
+    }
 
-      if (location.search.indexOf('debug') !== -1 || (w && !ctx.labels[w])) {
-        // 查不到就说明这张标签不是演示数据集里的 —— 给调试入口而不是死路
-        document.getElementById('main').innerHTML = renderNotice('info',
-          '未找到运单 ' + esc(w || ''),
-          '演示数据集内含：<code>' + (meta.waybills || []).join('</code> <code>') + '</code>' +
-          '<br>也可以直接贴入一张真标签的载荷 JSON 来渲染。');
-        document.getElementById('source-badge').textContent = '等待输入';
-        renderDebugEntry('粘贴标签载荷 JSON（由 PDA 写入端导出，或 NFC 工具读取）');
-        return;
-      }
+    var info = await api.getPublic(w);
+    if (!info) {
+      renderNotFound(w, publicDoc);
+      return;
+    }
+    ctx.waybill = w;
+    ctx.info = info;
 
-      if (!w) { fail('URL 里没有运单号。正确形式：/p/&lt;运单号&gt; 或 ?w=&lt;运单号&gt;'); return; }
+    if (!api.isCryptoAvailable()) {
+      renderCryptoError();
+      return;
+    }
 
-      render(ctx.labels[w], ctx);
-      renderDebugEntry(null);
-    }).catch(function (e) {
+    var record = api.getRecord(w);
+    renderLocked(info, ctx, record);
+
+    if (debugMode) renderDebugEntry(ctx);
+  }
+
+  async function boot() {
+    try {
+      var res = await Promise.all([
+        loadJSON('public.json', 'public'),
+        loadJSON('sealed.json', 'sealed'),
+        loadJSON('adSlots.json', 'adSlots'),
+        loadJSON('materials.json', 'materials'),
+        loadJSON('nodes.json', 'nodes'),
+      ]);
+      await asyncBoot(res[0], res[1], res[2], res[3], res[4]);
+    } catch (e) {
       fail(e.message);
-    });
+    }
   }
 
-  // 测试钩子：把纯函数暴露出来，供 reader-h5/tests/run_tests.js 在 Node 下直接调用。
+  // 测试钩子：把纯函数暴露出来，供 tests/run_tests.js 在 Node 下直接调用。
   // 指针降级、契约校验这些逻辑跑在无 DOM 环境里就能验，不必起浏览器。
   if (typeof window !== 'undefined') {
     window.__pdaIot = {

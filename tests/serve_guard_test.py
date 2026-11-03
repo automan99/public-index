@@ -57,13 +57,13 @@ class PrivatePathGuardTest(unittest.TestCase):
         self.assert_blocked("/%5cdata-private%5clabels.json")
 
     def test_dot_segment_escape_blocked(self):
-        # translate_path 会丢弃 ".." 后仍可能落到根下的私有目录
+        # ".." 段不会逃出站点根，但归一化后仍可能指向根下的私有目录
         self.assert_blocked("/p/../../data-private/labels.json")
         self.assert_blocked("/foo/../data-private/labels.json")
 
     def test_normal_files_allowed(self):
         self.assert_allowed("/index.html")
-        self.assert_allowed("/data/labels.json")
+        self.assert_allowed("/data/adSlots.json")
 
     def test_p_fallback_unchanged(self):
         handler = make_handler("/p/202608080003")

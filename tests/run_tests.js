@@ -16,7 +16,6 @@ const path = require('path');
 const vm = require('vm');
 
 const H5_DIR = path.resolve(__dirname, '..');
-const REPO = path.resolve(H5_DIR, '..');
 
 // app.js 是浏览器脚本，这里在沙箱里加载：只给 window，不给 document，
 // 于是它注册完测试钩子就返回，不跑 boot()。
@@ -31,10 +30,11 @@ if (!api) {
   process.exit(2);
 }
 
-const labels = JSON.parse(fs.readFileSync(path.join(H5_DIR, 'data', 'labels.json'), 'utf8')).labels;
-const nodes = JSON.parse(fs.readFileSync(path.join(REPO, 'shared', 'nodes.json'), 'utf8'));
-const adSlots = JSON.parse(fs.readFileSync(path.join(REPO, 'shared', 'adSlots.json'), 'utf8'));
-const materials = JSON.parse(fs.readFileSync(path.join(REPO, 'shared', 'materials.json'), 'utf8'));
+const labels = JSON.parse(
+  fs.readFileSync(path.join(H5_DIR, 'data-private', 'labels.json'), 'utf8')).labels;
+const nodes = JSON.parse(fs.readFileSync(path.join(H5_DIR, 'data', 'nodes.json'), 'utf8'));
+const adSlots = JSON.parse(fs.readFileSync(path.join(H5_DIR, 'data', 'adSlots.json'), 'utf8'));
+const materials = JSON.parse(fs.readFileSync(path.join(H5_DIR, 'data', 'materials.json'), 'utf8'));
 
 let fail = 0;
 function check(desc, cond, detail) {

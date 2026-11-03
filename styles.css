@@ -181,3 +181,91 @@ html, body {
   background: var(--brand); color: #fff; font-size: 14px; font-weight: 500;
 }
 .debug-hint { font-size: 12px; color: var(--ink-3); margin-top: 7px; }
+
+/* ---------- 演示横幅（所有状态常驻） ---------- */
+.demo-banner {
+  background: var(--warn-soft);
+  border: 1px solid #f0dcae;
+  color: var(--warn);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+
+/* ---------- 手机号门禁 ---------- */
+.gate-card { overflow-wrap: anywhere; }
+.phone-mask {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  margin: 2px 0 4px;
+}
+.phone-hint { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; }
+.phone-form { display: flex; flex-direction: column; gap: 10px; }
+.phone-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 17px;               /* ≥16px：避免 iOS 聚焦自动缩放 */
+  letter-spacing: .5px;
+  font-variant-numeric: tabular-nums;
+}
+.phone-input:focus { border-color: var(--brand); outline: 2px solid var(--brand-soft); }
+.phone-input:disabled { background: #f7f8fa; color: var(--ink-3); }
+.verify-btn {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.verify-btn:disabled { opacity: .55; cursor: not-allowed; }
+.gate-error { color: var(--err); font-size: 13px; margin: 10px 0 0; }
+.gate-error:empty { display: none; }
+.lockout {
+  background: var(--err-soft);
+  color: var(--err);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 13px;
+  margin-top: 10px;
+}
+.lockout[hidden] { display: none; }
+
+/* ---------- 本机状态 / 已验证标识 ---------- */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  max-width: 100%;
+  margin-bottom: 10px;
+}
+.verified-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #e8f5ee;
+  color: var(--ok);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}

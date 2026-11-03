@@ -83,7 +83,7 @@ def main() -> int:
                     errors.append(f"{fname}::{key} 缺必填字段 `{f}`（页面会渲染成空块）")
 
     # ---- 2. 悬空指针：标签引用的键必须存在于表里 ----
-    labels_path = os.path.join(H5_DIR, "data", "labels.json")
+    labels_path = os.path.join(H5_DIR, "data-private", "labels.json")
     if os.path.exists(labels_path):
         with open(labels_path, encoding="utf-8") as f:
             labels = json.load(f).get("labels", {})
