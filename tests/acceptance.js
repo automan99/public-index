@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* H5 读取页验收断言 —— AC-04 / AC-05 / AC-09（签收认证版）。
+/* H5 读取页验收断言 —— AC-04 / AC-04-S / AC-05 / AC-09（签收认证版）。
  *
  * 为什么需要这个脚本：
  *
@@ -686,6 +686,45 @@ async function main() {
         check('素材表已还原', sha256(fs.readFileSync(adSlotsPath)) === sha256(original));
       }
     }
+
+    // ============================================================ AC-04-S
+    // 放在 AC-09 之后：AC-05 的字节对比与 AC-09 都发生在 W 仍未签收时。
+    console.log('\n--- AC-04-S：手机号验证后签收与本机留痕 ---');
+    check('验证后出现签收按钮', await page.waitForSelector('#sign-btn'));
+    await page.evaluate(`document.getElementById('sign-btn').click()`);
+    check('签收前出现不可撤销确认', await page.waitForSelector('#sign-confirm-btn'));
+    await page.evaluate(`document.getElementById('sign-confirm-btn').click()`);
+    check('签收成功卡出现', await page.waitForSelector('.sign-success'));
+
+    const success = await page.evaluate(`(() => ({
+      text: document.querySelector('.sign-success').innerText,
+      time: document.querySelector('.sign-time')?.innerText,
+      phone: document.querySelector('.sign-phone')?.innerText,
+      fp: document.querySelector('.sign-fp')?.innerText,
+      event: document.querySelector('.sign-event')?.innerText,
+      hash: document.querySelector('.sign-hash')?.innerText,
+    }))()`);
+    check('成功卡含“已签收”', success.text.includes('已签收'));
+    check('成功卡含签收时间', !!success.time);
+    check('成功卡展示脱敏手机号', success.phone.includes(mask));
+    check('成功卡展示指纹 ID', /fp_[0-9a-f]{8}/.test(success.fp));
+    check('成功卡展示记录 ID', /[0-9a-f]{8}/.test(success.event));
+    check('成功卡展示内容指纹', /h_[0-9a-f]{8}/.test(success.hash));
+
+    const rec = await page.evaluate(`JSON.parse(localStorage.getItem('pda_sign_${W}'))`);
+    check('本机记录已写入', !!rec && rec.status === 'signed');
+    check('记录含脱敏手机号', rec.phoneMask === mask);
+    check('记录不含完整手机号', !JSON.stringify(rec).includes(phone));
+    check('记录含设备指纹', /^fp_[0-9a-f]{8}$/.test(rec.device.fingerprintId));
+
+    // 刷新后仍需验证，验证后不产生第二条
+    await page.goto(prodUrlW);
+    check('刷新后显示本机已签收', await page.has('已签收（本机'));
+    await page.verifyWith(phone);
+    await page.waitForSelector('.sign-success, .signed-record');
+    const rec2 = await page.evaluate(`JSON.parse(localStorage.getItem('pda_sign_${W}'))`);
+    check('刷新后记录未被覆盖', rec2.eventId === rec.eventId);
+    check('已签收后不再出现签收按钮', !(await page.evaluate(`!!document.getElementById('sign-btn')`)));
   } finally {
     await browser.close();
     if (server) server.kill('SIGTERM');

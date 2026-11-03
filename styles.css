@@ -269,3 +269,87 @@ html, body {
   font-weight: 600;
   margin-bottom: 10px;
 }
+
+/* ---------- 签收区（仅在已验证视图出现） ---------- */
+.sign-note { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; }
+.sign-actions { display: flex; }
+.sign-btn,
+.sign-confirm-btn,
+.sign-cancel-btn {
+  min-height: 48px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sign-btn {
+  flex: 1;
+  border: 0;
+  background: var(--brand);
+  color: #fff;
+}
+.sign-btn:disabled { opacity: .55; cursor: not-allowed; }
+.sign-confirm {
+  background: var(--warn-soft);
+  border: 1px solid #f0dcae;
+  border-radius: 10px;
+  padding: 11px 12px;
+  margin-top: 12px;
+}
+.sign-confirm-text {
+  margin: 0 0 10px;
+  color: var(--warn);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.sign-confirm-actions { display: flex; gap: 10px; }
+.sign-confirm-btn {
+  flex: 1;
+  border: 0;
+  background: var(--brand);
+  color: #fff;
+}
+.sign-confirm-btn:disabled { opacity: .55; cursor: not-allowed; }
+.sign-cancel-btn {
+  flex: 0 0 96px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.sign-cancel-btn:disabled { opacity: .55; cursor: not-allowed; }
+.sign-error { color: var(--err); font-size: 13px; margin: 10px 0 0; }
+.sign-error:empty { display: none; }
+
+/* 成功卡：--ok 色系；字段沿用签收区的两列布局。 */
+.sign-success {
+  border: 1px solid #cfe9da;
+  background: #f6fbf8;
+}
+.sign-success-icon {
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.sign-state { color: var(--ok); font-size: 18px; font-weight: 700; margin: 0 0 10px; }
+.sign-field {
+  display: flex;
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px dashed #d8eadf;
+  font-size: 13.5px;
+}
+.sign-k { flex: 0 0 76px; color: var(--ink-2); }
+.sign-v { flex: 1; word-break: break-all; }
+.sign-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}

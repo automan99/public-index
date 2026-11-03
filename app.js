@@ -16,6 +16,8 @@
   var DEMO_BANNER = '演示环境：详情为加密演示数据；签收记录仅保存在本机，不具备法律效力。';
   var LOCK_FALLBACK_MS = 60 * 1000;
   var lockTimer = null;
+  // 本次验证成功后的内存解锁结果，仅供签收使用；刷新即失效。
+  var currentUnlock = null;
 
   // ============================================================
   // 一、数据加载
@@ -314,6 +316,126 @@
       ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
+  /* 签收区：仅在已验证视图渲染。记录只展示脱敏手机号与软指纹，不含完整手机号。 */
+  var SIGN_NOTE = '签收后不可撤销。将记录签收时间、脱敏手机号与设备信息，用于签收凭证。';
+
+  function signField(k, cls, v) {
+    return '<div class="sign-field"><span class="sign-k">' + esc(k) + '</span>' +
+      '<span class="sign-v ' + cls + '">' + esc(v) + '</span></div>';
+  }
+
+  function renderSignCard() {
+    return '<section class="card sign-card">' +
+      '<h2 class="card-title">签收</h2>' +
+      '<p class="sign-note">' + esc(SIGN_NOTE) + '</p>' +
+      '<div class="sign-actions">' +
+        '<button id="sign-btn" class="sign-btn" type="button">确认签收</button>' +
+      '</div>' +
+      '<p id="sign-error" class="sign-error" aria-live="polite"></p>' +
+      '</section>';
+  }
+
+  function renderSignedCard(record) {
+    var rec = record || {};
+    var device = rec.device || {};
+    var fp = device.fingerprintId || '—';
+    var eventId = String(rec.eventId || '');
+    var contentHash = String(rec.contentHash || '');
+    return '<section class="card sign-success signed-record">' +
+      '<div class="sign-success-icon" aria-hidden="true">✓</div>' +
+      '<h2 class="card-title">签收凭证</h2>' +
+      '<p class="sign-state">已签收（本机记录）</p>' +
+      signField('状态', '', '已签收') +
+      signField('签收时间', 'sign-time', formatRecordTime(rec.signedAt)) +
+      signField('手机号', 'sign-phone sign-mono', rec.phoneMask || '—') +
+      signField('设备指纹', 'sign-fp sign-mono', fp) +
+      signField('校验方式', '', rec.verifyMethod === 'phone' ? '手机号' : (rec.verifyMethod || '—')) +
+      signField('记录 ID', 'sign-event sign-mono', eventId.slice(0, 8)) +
+      signField('内容指纹', 'sign-hash sign-mono', 'h_' + contentHash.slice(0, 8)) +
+      '<p class="privacy-note">签收记录仅保存在本机，不具备法律效力。' +
+      '设备指纹为软指纹，清除浏览器数据即失效，也可被伪造。</p>' +
+      '</section>';
+  }
+
+  /* 行内确认：先展开不可撤销提示，确认后才写入；取消则收起并恢复按钮。 */
+  function bindSign(unlocked, info) {
+    var btn = document.getElementById('sign-btn');
+    if (!btn || !unlocked) return;
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      btn.disabled = true;
+
+      var card = btn.closest ? btn.closest('.sign-card') : null;
+      var wrap = document.getElementById('sign-confirm');
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'sign-confirm';
+        wrap.className = 'sign-confirm';
+        wrap.setAttribute('role', 'group');
+        wrap.setAttribute('aria-label', '确认签收');
+        wrap.innerHTML = '<p class="sign-confirm-text">确认签收？此操作不可撤销</p>' +
+          '<div class="sign-confirm-actions">' +
+            '<button id="sign-confirm-btn" class="sign-confirm-btn" type="button">确认签收</button>' +
+            '<button id="sign-cancel-btn" class="sign-cancel-btn" type="button">取消</button>' +
+          '</div>';
+        var errEl = document.getElementById('sign-error');
+        if (card && errEl && errEl.parentNode === card) card.insertBefore(wrap, errEl);
+        else if (card) card.appendChild(wrap);
+
+        var cancelBtn = document.getElementById('sign-cancel-btn');
+        if (cancelBtn) {
+          cancelBtn.addEventListener('click', function () {
+            if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+            btn.disabled = false;
+          });
+        }
+        var confirmBtn = document.getElementById('sign-confirm-btn');
+        if (confirmBtn) {
+          confirmBtn.addEventListener('click', function () {
+            handleSign(unlocked, info);
+          });
+        }
+      }
+    });
+  }
+
+  function handleSign(unlocked, info) {
+    var api = window.PdaSignApi;
+    var btn = document.getElementById('sign-confirm-btn');
+    var cancelBtn = document.getElementById('sign-cancel-btn');
+    var errEl = document.getElementById('sign-error');
+    if (!api || !unlocked || !btn || btn.disabled) return Promise.resolve();
+
+    btn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    btn.textContent = '签收中…';
+    if (errEl) errEl.textContent = '';
+
+    return api.sign({
+      waybill: unlocked.waybill,
+      detail: unlocked.detail,
+      contentHash: unlocked.contentHash,
+      phoneMask: (info && info.phoneMask) || '',
+    }).then(function (record) {
+      showSigned(record);
+    }).catch(function () {
+      btn.disabled = false;
+      btn.textContent = '确认签收';
+      if (cancelBtn) cancelBtn.disabled = false;
+      if (errEl) errEl.textContent = '签收失败，请稍后重试。';
+    });
+  }
+
+  function showSigned(record) {
+    var old = document.querySelector('.sign-card, .signed-record');
+    if (old) {
+      var box = document.createElement('div');
+      box.innerHTML = renderSignedCard(record);
+      old.parentNode.replaceChild(box.firstChild, old);
+    }
+    setBadge('已签收');
+  }
+
   /* 浅信息卡：运单号 / 物品 / 重量 / 服务。详情字段一律不在这里出现。 */
   function renderShallow(info) {
     var i = info || {};
@@ -389,6 +511,11 @@
       btn.disabled = false;
       btn.textContent = labelText;
       input.disabled = false;
+      currentUnlock = {
+        waybill: ctx.waybill,
+        detail: res.detail,
+        contentHash: res.contentHash,
+      };
       renderFull(res.detail, ctx, api.getRecord(ctx.waybill));
     }).catch(function (err) {
       btn.disabled = false;
@@ -465,7 +592,7 @@
     if (!lockTimer) lockTimer = setInterval(tick, 1000);
   }
 
-  /* 已验证视图：复跑契约校验，通过后复用现有卡片渲染。本任务不渲染签收卡。 */
+  /* 已验证视图：复跑契约校验，通过后复用现有卡片渲染，并在末尾追加签收区。 */
   function renderFull(label, ctx, record, options) {
     var opts = options || {};
     var v = validate(label);
@@ -493,9 +620,17 @@
     html += renderMaterial(label, ctx.materials);
     html += renderStamp(label);
 
+    if (!opts.debug) {
+      html += record ? renderSignedCard(record) : renderSignCard();
+    }
+
     document.getElementById('main').innerHTML = html;
     setBadge(opts.debug ? '调试渲染' : '已解锁');
     ctx.unlocked = true;
+
+    if (!opts.debug && !record && currentUnlock && currentUnlock.waybill === ctx.waybill) {
+      bindSign(currentUnlock, ctx.info);
+    }
   }
 
   function renderDebugEntry(ctx) {
